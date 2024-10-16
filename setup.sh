@@ -62,3 +62,4 @@ cd ..
 
 echo "Setup complete. MongoDB is running and Java applications are started."
 echo "Logs can be found in shard1.log, shard2.log, configsvr.log, mongos.log, service-a.log, and service-b.log."
+echo "To view logs, run ./tail.sh"
