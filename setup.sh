@@ -51,15 +51,15 @@ mongo --port 27020 --eval 'sh.addShard("shard2/localhost:27019")'
 echo "Building and running Service A..."
 cd service-a
 mvn clean package
-nohup mvn exec:java -Dexec.mainClass="com.example.servicea.ServiceA" > ../service-a.log 2>&1 &
+nohup java -jar target/service-a-1.0-SNAPSHOT.jar > ../service-a.log 2>&1 &
 cd ..
 
 echo "Building and running Service B..."
 cd service-b
 mvn clean package
-nohup mvn exec:java -Dexec.mainClass="com.example.serviceb.ServiceB" > ../service-b.log 2>&1 &
+nohup java -jar target/service-b-1.0-SNAPSHOT.jar > ../service-b.log 2>&1 &
 cd ..
 
 echo "Setup complete. MongoDB is running and Java applications are started."
-echo "Logs can be found in shard1.log, shard2.log, configsvr.log, mongos.log, service-a.log, and service-b.log."
+echo "Logs can be found in shard1.log, shard2.log, config.log, mongos.log, service-a.log, and service-b.log."
 echo "To view logs, run ./tail.sh"
