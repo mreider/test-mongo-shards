@@ -10,7 +10,7 @@ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb
 sudo apt update
 sudo apt install -y mongodb-org
 
-# Start MongoDB
+# Start MongoDB service
 sudo systemctl start mongod
 sudo systemctl enable mongod
 
@@ -19,26 +19,29 @@ sudo mkdir -p /data/shard1 /data/shard2 /data/config
 sudo mkdir -p /var/log/mongodb
 sudo chown -R `whoami` /var/log/mongodb
 
-# Start shard1 without forking
+# Start shard1 with forking
 echo "Starting shard1..."
-sudo mongod --shardsvr --replSet shard1 --port 27018 --dbpath /data/shard1 --logpath /var/log/mongodb/shard1.log
+sudo mongod --shardsvr --replSet shard1 --port 27018 --dbpath /data/shard1 --logpath /var/log/mongodb/shard1.log --fork
 
-# Start shard2 without forking
+# Start shard2 with forking
 echo "Starting shard2..."
-sudo mongod --shardsvr --replSet shard2 --port 27019 --dbpath /data/shard2 --logpath /var/log/mongodb/shard2.log
+sudo mongod --shardsvr --replSet shard2 --port 27019 --dbpath /data/shard2 --logpath /var/log/mongodb/shard2.log --fork
 
-# Start config server without forking
+# Start config server with forking
 echo "Starting config server..."
-sudo mongod --configsvr --replSet configReplSet --port 27017 --dbpath /data/config --logpath /var/log/mongodb/config.log
+sudo mongod --configsvr --replSet configReplSet --port 27017 --dbpath /data/config --logpath /var/log/mongodb/config.log --fork
+
+# Give the processes a moment to start
+sleep 5
 
 # Initiate replica sets
 mongo --port 27018 --eval 'rs.initiate({_id: "shard1", members: [{_id: 0, host: "localhost:27018"}]})'
 mongo --port 27019 --eval 'rs.initiate({_id: "shard2", members: [{_id: 0, host: "localhost:27019"}]})'
 mongo --port 27017 --eval 'rs.initiate({_id: "configReplSet", configsvr: true, members: [{_id: 0, host: "localhost:27017"}]})'
 
-# Start mongos without forking
+# Start mongos with forking
 echo "Starting mongos..."
-sudo mongos --configdb configReplSet/localhost:27017 --port 27020 --logpath /var/log/mongodb/mongos.log
+sudo mongos --configdb configReplSet/localhost:27017 --port 27020 --logpath /var/log/mongodb/mongos.log --fork
 
 # Add shards to the cluster
 mongo --port 27020 --eval 'sh.addShard("shard1/localhost:27018")'
