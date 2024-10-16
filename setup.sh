@@ -2,38 +2,45 @@
 
 # Update and install necessary packages
 sudo apt update
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common openjdk-11-jdk maven
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common openjdk-11-jdk maven wget
 
-# Add Docker’s official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Set up the stable repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Update the apt package index again
+# Install MongoDB
+wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
 sudo apt update
+sudo apt install -y mongodb-org
 
-# Install the latest version of Docker Engine and containerd
-sudo apt install -y docker-ce docker-ce-cli containerd.io
+# Start MongoDB
+sudo systemctl start mongod
+sudo systemctl enable mongod
 
-# Manage Docker as a non-root user
-sudo groupadd docker
-sudo usermod -aG docker $USER
+# Configure MongoDB sharding
+sudo mkdir -p /data/shard1 /data/shard2 /data/config
 
-# Enable Docker to start on boot
-sudo systemctl enable docker
+sudo mongod --shardsvr --replSet shard1 --port 27018 --dbpath /data/shard1 --logpath /var/log/mongodb/shard1.log --fork
+sudo mongod --shardsvr --replSet shard2 --port 27019 --dbpath /data/shard2 --logpath /var/log/mongodb/shard2.log --fork
+sudo mongod --configsvr --replSet configReplSet --port 27017 --dbpath /data/config --logpath /var/log/mongodb/config.log --fork
 
-# Build Java services
-echo "Building Service A..."
+mongo --port 27018 --eval 'rs.initiate({_id: "shard1", members: [{_id: 0, host: "localhost:27018"}]})'
+mongo --port 27019 --eval 'rs.initiate({_id: "shard2", members: [{_id: 0, host: "localhost:27019"}]})'
+mongo --port 27017 --eval 'rs.initiate({_id: "configReplSet", configsvr: true, members: [{_id: 0, host: "localhost:27017"}]})'
+
+sudo mongos --configdb configReplSet/localhost:27017 --port 27020 --logpath /var/log/mongodb/mongos.log --fork
+
+mongo --port 27020 --eval 'sh.addShard("shard1/localhost:27018")'
+mongo --port 27020 --eval 'sh.addShard("shard2/localhost:27019")'
+
+# Build and run Java services
+echo "Building and running Service A..."
 cd service-a
 mvn clean package
+mvn exec:java -Dexec.mainClass="com.example.servicea.ServiceA" &
 cd ..
 
-echo "Building Service B..."
+echo "Building and running Service B..."
 cd service-b
 mvn clean package
+mvn exec:java -Dexec.mainClass="com.example.serviceb.ServiceB" &
 cd ..
 
-# Run Docker Compose
-echo "Starting Docker Compose..."
-docker-compose up --build
+echo "Setup complete. MongoDB is running and Java applications are started."
