@@ -54,6 +54,7 @@ mvn clean package
 nohup java -jar target/service-a-1.0-SNAPSHOT.jar > ../service-a.log 2>&1 &
 cd ..
 
+
 echo "Building and running Service B..."
 cd service-b
 mvn clean package
@@ -61,5 +62,5 @@ nohup java -jar target/service-b-1.0-SNAPSHOT.jar > ../service-b.log 2>&1 &
 cd ..
 
 echo "Setup complete. MongoDB is running and Java applications are started."
-echo "Logs can be found in shard1.log, shard2.log, config.log, mongos.log, service-a.log, and service-b.log."
+echo "Logs can be found in shard1.log, shard2.log, configsvr.log, mongos.log, service-a.log, and service-b.log."
 echo "To view logs, run ./tail.sh"
