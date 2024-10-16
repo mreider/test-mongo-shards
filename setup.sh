@@ -16,21 +16,31 @@ sudo systemctl enable mongod
 
 # Configure MongoDB sharding
 sudo mkdir -p /data/shard1 /data/shard2 /data/config
+sudo mkdir -p /var/log/mongodb
+sudo chown -R `whoami` /var/log/mongodb
 
-nohup sudo mongod --shardsvr --replSet shard1 --port 27018 --dbpath /data/shard1 --logpath /var/log/mongodb/shard1.log --fork > shard1.log 2>&1 &
-nohup sudo mongod --shardsvr --replSet shard2 --port 27019 --dbpath /data/shard2 --logpath /var/log/mongodb/shard2.log --fork > shard2.log 2>&1 &
-nohup sudo mongod --configsvr --replSet configReplSet --port 27017 --dbpath /data/config --logpath /var/log/mongodb/config.log --fork > configsvr.log 2>&1 &
+# Start shard1 without forking
+echo "Starting shard1..."
+sudo mongod --shardsvr --replSet shard1 --port 27018 --dbpath /data/shard1 --logpath /var/log/mongodb/shard1.log
 
-sleep 5
+# Start shard2 without forking
+echo "Starting shard2..."
+sudo mongod --shardsvr --replSet shard2 --port 27019 --dbpath /data/shard2 --logpath /var/log/mongodb/shard2.log
 
+# Start config server without forking
+echo "Starting config server..."
+sudo mongod --configsvr --replSet configReplSet --port 27017 --dbpath /data/config --logpath /var/log/mongodb/config.log
+
+# Initiate replica sets
 mongo --port 27018 --eval 'rs.initiate({_id: "shard1", members: [{_id: 0, host: "localhost:27018"}]})'
 mongo --port 27019 --eval 'rs.initiate({_id: "shard2", members: [{_id: 0, host: "localhost:27019"}]})'
 mongo --port 27017 --eval 'rs.initiate({_id: "configReplSet", configsvr: true, members: [{_id: 0, host: "localhost:27017"}]})'
 
-nohup sudo mongos --configdb configReplSet/localhost:27017 --port 27020 --logpath /var/log/mongodb/mongos.log --fork > mongos.log 2>&1 &
+# Start mongos without forking
+echo "Starting mongos..."
+sudo mongos --configdb configReplSet/localhost:27017 --port 27020 --logpath /var/log/mongodb/mongos.log
 
-sleep 5
-
+# Add shards to the cluster
 mongo --port 27020 --eval 'sh.addShard("shard1/localhost:27018")'
 mongo --port 27020 --eval 'sh.addShard("shard2/localhost:27019")'
 
@@ -48,4 +58,4 @@ nohup mvn exec:java -Dexec.mainClass="com.example.serviceb.ServiceB" > ../servic
 cd ..
 
 echo "Setup complete. MongoDB is running and Java applications are started."
-echo "Run ./tmux.sh to see logs of the services."
+echo "Logs can be found in shard1.log, shard2.log, configsvr.log, mongos.log, service-a.log, and service-b.log."
